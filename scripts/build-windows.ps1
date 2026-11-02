@@ -144,6 +144,16 @@ Copy-Tree -Source $windowsSrc -Destination (Join-Path $packageRoot 'windows') -E
     (Join-Path $windowsSrc 'rustup\tmp')
 )
 
+# rustup creates proxies for tools whose components are not bundled. Each proxy
+# is a full copy of rustup.exe, so drop the unused ones to keep the ZIP smaller.
+$unusedProxies = @('rls.exe', 'rust-gdbgui.exe', 'rust-lldb.exe', 'cargo-miri.exe')
+foreach ($proxy in $unusedProxies) {
+    $proxyPath = Join-Path $packageRoot "windows\cargo\bin\$proxy"
+    if (Test-Path -LiteralPath $proxyPath) {
+        Remove-Item -LiteralPath $proxyPath -Force
+    }
+}
+
 Write-Step 'Copying shared files'
 Copy-Tree -Source $sharedSrc -Destination (Join-Path $packageRoot 'shared')
 
