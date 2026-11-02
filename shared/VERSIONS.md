@@ -83,10 +83,13 @@ d2845ad914acf5add202100c0a7ddf19ab1c3e52521e12841bafff13888e49bb
 ```bat
 set CARGO_HOME=<包根目录>\windows\cargo
 set RUSTUP_HOME=<包根目录>\windows\rustup
-windows\bootstrap\rustup-init.exe -y --no-modify-path --profile minimal --default-host x86_64-pc-windows-gnu --default-toolchain stable-x86_64-pc-windows-gnu
+windows\bootstrap\rustup-init.exe -y --no-modify-path --profile minimal --default-host x86_64-pc-windows-gnu --default-toolchain <VERSION>-x86_64-pc-windows-gnu
 windows\cargo\bin\rustup.exe component add rustfmt clippy rust-analyzer rust-src
 windows\cargo\bin\rustup.exe set profile minimal
 ```
+
+> `<VERSION>` 取包内 `VERSION` 文件中的 Rust 版本，例如 `1.99.1`。
+> 不要写成 `stable`，否则会安装当时的最新 stable，而不是发布版本。
 
 > 为了控制体积，没有安装 `llvm-tools`、`rust-docs`、`rust-analysis`。
 > 需要时可用 `rustup component add <名称>` 重新安装。

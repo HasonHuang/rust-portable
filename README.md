@@ -255,8 +255,11 @@ set "RUSTUP_HOME=D:\rust-portable\windows\rustup"
 3. 运行 rustup 安装器：
 
 ```bat
-D:\rust-portable\windows\bootstrap\rustup-init.exe -y --no-modify-path --profile minimal --default-host x86_64-pc-windows-gnu --default-toolchain stable-x86_64-pc-windows-gnu
+D:\rust-portable\windows\bootstrap\rustup-init.exe -y --no-modify-path --profile minimal --default-host x86_64-pc-windows-gnu --default-toolchain 1.99.1-x86_64-pc-windows-gnu
 ```
+
+`1.99.1` 应替换为包内 `VERSION` 文件中的版本号。
+不要写成 `stable`，否则会安装当时的最新 stable，而不是本包对应的版本。
 
 4. 添加常用组件：
 

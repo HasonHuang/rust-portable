@@ -31,8 +31,12 @@ if not exist "%CARGO_HOME%\bin\rustc.exe" (
     exit /b 1
 )
 
-if not exist "%RUSTUP_HOME%\toolchains\stable-x86_64-pc-windows-gnu\bin\rustc.exe" (
-    echo [rust-portable] ERROR: the bundled stable Windows Rust toolchain was not found.
+set "RUST_PORTABLE_TOOLCHAIN_FOUND="
+for /d %%D in ("%RUSTUP_HOME%\toolchains\*") do (
+    if exist "%%D\bin\rustc.exe" set "RUST_PORTABLE_TOOLCHAIN_FOUND=1"
+)
+if not defined RUST_PORTABLE_TOOLCHAIN_FOUND (
+    echo [rust-portable] ERROR: the bundled Windows Rust toolchain was not found.
     echo [rust-portable] The package is incomplete.
     exit /b 1
 )

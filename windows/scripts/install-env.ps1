@@ -146,7 +146,6 @@ if (-not $Remove) {
         (Join-Path $cargoBin 'rustc.exe'),
         (Join-Path $cargoBin 'cargo.exe'),
         (Join-Path $cargoBin 'rustup.exe'),
-        (Join-Path $rustupHome 'toolchains\stable-x86_64-pc-windows-gnu\bin\rustc.exe'),
         (Join-Path $mingwBin 'gcc.exe'),
         (Join-Path $sharedDir 'examples\hello\Cargo.toml'),
         (Join-Path $sharedDir 'tests\smoke.c')
@@ -155,6 +154,18 @@ if (-not $Remove) {
         if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
             throw "The portable package is incomplete. Missing: $file"
         }
+    }
+
+    # CI installs a versioned toolchain such as 1.99.1-x86_64-pc-windows-gnu,
+    # while a local environment may use the stable-* channel alias.
+    $toolchainRoot = Join-Path $rustupHome 'toolchains'
+    $toolchainRustc = @(
+        Get-ChildItem -LiteralPath $toolchainRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName 'bin\rustc.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+    )
+    if ($toolchainRustc.Count -eq 0) {
+        throw "The portable package is incomplete. No Rust toolchain under: $toolchainRoot"
     }
 }
 

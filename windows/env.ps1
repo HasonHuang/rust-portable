@@ -22,13 +22,24 @@ $sharedDir = Join-Path $packageRoot 'shared'
 $required = @(
     (Join-Path $cargoBin 'rustc.exe'),
     (Join-Path $cargoBin 'cargo.exe'),
-    (Join-Path $rustupHome 'toolchains\stable-x86_64-pc-windows-gnu\bin\rustc.exe'),
     (Join-Path $mingwBin 'gcc.exe')
 )
 foreach ($item in $required) {
     if (-not (Test-Path -LiteralPath $item -PathType Leaf)) {
         throw "Portable environment is incomplete. Missing: $item"
     }
+}
+
+# CI installs a versioned toolchain such as 1.99.1-x86_64-pc-windows-gnu,
+# while a local environment may use the stable-* channel alias.
+$toolchainRoot = Join-Path $rustupHome 'toolchains'
+$toolchainRustc = @(
+    Get-ChildItem -LiteralPath $toolchainRoot -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { Join-Path $_.FullName 'bin\rustc.exe' } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+)
+if ($toolchainRustc.Count -eq 0) {
+    throw "Portable environment is incomplete. No Rust toolchain under: $toolchainRoot"
 }
 
 $env:RUST_PORTABLE_HOME = $packageRoot

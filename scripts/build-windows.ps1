@@ -103,7 +103,6 @@ $required = @(
     (Join-Path $windowsSrc 'cargo\bin\rustc.exe'),
     (Join-Path $windowsSrc 'cargo\bin\cargo.exe'),
     (Join-Path $windowsSrc 'cargo\bin\rustup.exe'),
-    (Join-Path $windowsSrc 'rustup\toolchains\stable-x86_64-pc-windows-gnu\bin\rustc.exe'),
     (Join-Path $windowsSrc 'toolchain\mingw64\bin\gcc.exe'),
     (Join-Path $windowsSrc 'doctor.bat'),
     (Join-Path $sharedSrc 'examples\hello\Cargo.toml'),
@@ -113,6 +112,18 @@ foreach ($file in $required) {
     if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
         throw "The build inputs are incomplete. Missing: $file"
     }
+}
+
+# CI installs a versioned toolchain such as 1.99.1-x86_64-pc-windows-gnu,
+# while a local environment may use the stable-* channel alias.
+$toolchainRoot = Join-Path $windowsSrc 'rustup\toolchains'
+$toolchainRustc = @(
+    Get-ChildItem -LiteralPath $toolchainRoot -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { Join-Path $_.FullName 'bin\rustc.exe' } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+)
+if ($toolchainRustc.Count -eq 0) {
+    throw "No Rust toolchain found under $toolchainRoot. Run scripts\prepare-windows.ps1 first."
 }
 
 Write-Step "Preparing staging directory for v$Version"
