@@ -511,22 +511,60 @@ MinGW-w64、GCC 和 WinLibs 组件使用各自的许可证。
 Linux 工具链尚未包含。
 Linux 支持加入后，版本和许可信息也会记录在 `shared/VERSIONS.md`。
 
-## 6. 构建发布包（维护者）
+## 6. 发布方式（维护者）
 
-发布版本号使用 Rust 版本号，保存在 `VERSION`。
-构建脚本会校验打包的 `rustc --version` 必须等于这个版本。
+发布版本号使用 Rust 版本号。
+版本保存在仓库根目录的 `VERSION`，Release 标签固定为 `v<VERSION>`。
+构建脚本会校验打包的 `rustc --version` 必须等于 `VERSION`，不一致时构建失败。
 
-### GitHub Actions 自动构建（推荐）
+### 6.1 发布前准备
 
-仓库包含 `.github/workflows/release.yml`，在 GitHub 上完成构建和发布：
+1. 把 `VERSION` 更新为要发布的 Rust 版本，例如 `1.99.1`。
+2. 更新 `CHANGELOG.md`。
+3. 工具链版本变化时更新 `shared/VERSIONS.md`。
+4. 可选：新增 `docs/release-notes/v<version>.md` 作为 Release Notes。
+   没有该文件时，GitHub 自动生成发布说明。
+5. 提交并推送到 `main`：
 
-- 推送标签 `v<Rust版本>`（例如 `v1.99.1`）；或
-- Actions → `Release` → `Run workflow`，版本从 `VERSION` 读取并自动创建标签。
+```bash
+git add VERSION CHANGELOG.md shared/VERSIONS.md docs/release-notes/
+git commit -m "Release v1.99.1"
+git push origin main
+```
 
-工作流会安装同一版本的 Rust，构建 Windows 压缩包，运行自检，上传 ZIP 和 `SHA256SUMS`，然后发布 Release。
-也可以勾选 `draft` 输入，先生成草稿 Release。
+### 6.2 方式一：推送标签（自动构建并发布）
 
-### 本地构建
+```bash
+git tag -a v1.99.1 -m "rust-portable v1.99.1"
+git push origin v1.99.1
+```
+
+标签必须等于 `v<VERSION>`，否则工作流在第一步失败。
+
+### 6.3 方式二：手动运行工作流
+
+在 GitHub 上打开 Actions → `Release` → `Run workflow`。
+
+- 版本从 `VERSION` 读取，不需要再输入版本号。
+- 工作流会在所选提交上创建 `v<VERSION>` 标签。
+- 可选 `draft` 输入：只生成草稿 Release，不直接公开。
+- 如果该版本的 Release 已经发布，工作流会拒绝重复构建。
+  发布新版本请先更新 `VERSION`。
+
+### 6.4 工作流执行内容
+
+工作流文件：`.github/workflows/release.yml`。
+
+| 步骤 | 内容 |
+| --- | --- |
+| `resolve` | 读取 `VERSION`，校验标签格式和版本一致性，检查同版本 Release 是否已存在 |
+| `build-windows` | 在 `windows-latest` 上安装同一版本的 Rust，构建 ZIP，运行自检，生成 `SHA256SUMS` |
+| `publish` | 创建或复用 Release，上传 ZIP 和 `SHA256SUMS`，然后发布 |
+
+工作流需要仓库 Settings → Actions → General → Workflow permissions 允许读写。
+GitHub Release 单个资产不能超过 2 GiB。
+
+### 6.5 本地构建（备用）
 
 首次构建时，先准备工具链：
 
@@ -555,4 +593,44 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 
 需要 7-Zip。没有 7-Zip 时，脚本使用 Windows 10/11 自带的 `tar.exe`。
 工具链目录不提交到 Git。
-发布步骤和 GitHub Actions 配置说明见仓库中的 `docs/RELEASING.md`。
+
+### 6.6 手动发布 GitHub Release（工作流不可用时）
+
+需要 GitHub CLI 并已登录：
+
+```bash
+gh auth login
+```
+
+创建工作流对应的草稿 Release：
+
+```bash
+gh release create v1.99.1 \
+  dist/rust-portable-v1.99.1-windows-x64.zip \
+  dist/SHA256SUMS \
+  --title "rust-portable v1.99.1" \
+  --notes-file docs/release-notes/v1.99.1.md \
+  --draft
+```
+
+检查资产后发布：
+
+```bash
+gh release edit v1.99.1 --draft=false
+```
+
+### 6.7 发布检查清单
+
+- `VERSION` 等于实际打包的 `rustc --version`。
+- Release 有 ZIP 和 `SHA256SUMS` 两个资产，文件名带正确版本号。
+- `SHA256SUMS` 与下载的压缩包一致：
+
+```bat
+certutil -hashfile rust-portable-v1.99.1-windows-x64.zip SHA256
+```
+
+- 在干净目录解压后，`windows\doctor.bat` 全部通过。
+- Release Notes 中的平台、工具链版本、安装步骤准确。
+- 当前只发布 Windows x64；Linux 资产尚未提供。
+
+更详细的维护者流程见仓库中的 `docs/RELEASING.md`。
