@@ -17,7 +17,7 @@ Linux 包不包含 GCC、glibc、binutils 或 make；这些由目标系统的软
   - `licenses/rust-LICENSE-MIT.txt`
   - `licenses/rust-LICENSE-APACHE.txt`
   - Windows 工具链内也保留了 `windows/rustup/toolchains/stable-x86_64-pc-windows-gnu/share/doc/rust/licenses/`
-  - Linux 组件安装后位于 `<prefix>/share/doc/rust/`
+  - Linux 组件安装后位于 `/opt/rust-portable/share/doc/rust/`
 
 Linux 包包含以下官方组件：
 

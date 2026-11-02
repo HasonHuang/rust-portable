@@ -36,10 +36,12 @@ Windows：
 Linux：
 
 1. 安装系统依赖：`sudo dnf install -y gcc gcc-c++ make tar xz`。
-2. 系统级安装：`sudo linux/install.sh`。
-3. 或用户级安装：`linux/install.sh`。
-4. 打开新终端，或执行 `. <前缀>/share/rust-portable/env.sh`。
-5. 运行 `<前缀>/share/rust-portable/doctor.sh`。
+2. 系统级安装：`sudo linux/install.sh`。默认前缀 `/opt/rust-portable`。
+3. 或用户级安装：`linux/install.sh`。默认前缀 `~/.local/rust-portable`。
+4. 打开新终端，或执行 `. /opt/rust-portable/share/rust-portable/env.sh`。
+5. 运行 `/opt/rust-portable/share/rust-portable/doctor.sh`。
+
+用户级安装请把第 4、5 步的 `/opt/rust-portable` 换成 `$HOME/.local/rust-portable`。
 
 校验示例：
 

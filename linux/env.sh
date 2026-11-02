@@ -12,7 +12,7 @@ else
     _rust_portable_self="${BASH_SOURCE[0]:-$0}"
 fi
 
-# Helpers live in <prefix>/share/rust-portable.
+# Helpers live in share/rust-portable under the install prefix.
 _rust_portable_dir="$(cd -- "$(dirname -- "$_rust_portable_self")" && pwd -P)"
 RUST_PORTABLE_HOME="$(dirname -- "$(dirname -- "$_rust_portable_dir")")"
 RUST_PORTABLE_SHARED="$RUST_PORTABLE_HOME/share/rust-portable/shared"

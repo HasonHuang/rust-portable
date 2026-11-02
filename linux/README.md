@@ -256,7 +256,7 @@ export CARGO_NET_OFFLINE=true
 安装后的目录：
 
 ```text
-<prefix>/
+/opt/rust-portable/
 ├─ bin/                     # rustc、cargo、rustfmt、rust-analyzer
 ├─ lib/                     # 标准库和 rustlib 清单
 ├─ share/
@@ -281,7 +281,7 @@ export CARGO_NET_OFFLINE=true
 **`rustc` 命令不存在**
 
 打开新终端。
-或执行 `source <prefix>/share/rust-portable/env.sh`。
+或执行 `source /opt/rust-portable/share/rust-portable/env.sh`。
 
 **`gcc` 或 `linker` 找不到**
 
@@ -319,7 +319,7 @@ sudo /opt/rust-portable/share/rust-portable/add-component.sh \
   rust-docs-1.99.1-x86_64-unknown-linux-gnu.tar.xz
 ```
 
-文档位于 `<prefix>/share/doc/rust/html/index.html`。
+文档位于 `/opt/rust-portable/share/doc/rust/html/index.html`。
 
 **有多个安装前缀**
 

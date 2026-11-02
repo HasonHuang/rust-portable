@@ -412,7 +412,7 @@ gh release upload v1.99.1 \
 2. 安装依赖：`sudo dnf install -y gcc gcc-c++ make`。
 3. 系统级安装：`sudo linux/install.sh`。
 4. 打开新终端。
-5. 运行 `<前缀>/share/rust-portable/doctor.sh`。
+5. 运行 `/opt/rust-portable/share/rust-portable/doctor.sh`。
 
 ### 已知限制
 
