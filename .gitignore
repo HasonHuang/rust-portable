@@ -1,0 +1,27 @@
+# Prebuilt toolchain payloads. They live in GitHub Release assets, not in Git.
+/windows/cargo/
+/windows/rustup/
+/windows/toolchain/
+/windows/bootstrap/rustup-init.exe
+
+# Build output
+/dist/
+/build/
+/target/
+**/target/
+
+# Archives
+*.zip
+*.7z
+*.7z.*
+*.tar
+*.tar.gz
+*.tgz
+
+# Local files
+*.log
+.DS_Store
+Thumbs.db
+
+# Crash dumps
+*.stackdump
