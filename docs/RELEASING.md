@@ -216,14 +216,25 @@ git push origin v1.99.1
 Actions → `Release` → `Run workflow`。
 版本仍然从 `VERSION` 读取，工作流会在所选提交上创建 `v<VERSION>` 标签。
 可选 `draft` 输入，先建草稿 Release 而不直接公开。
+可选 `dry_run` 输入，只构建并上传 Actions artifact，不创建标签或 Release。
 如果该版本的 Release 已公开发布，工作流会拒绝重复构建；要发布新版本请先更新 `VERSION`。
+
+首次切换或验证工作流时，先运行一次 dry run：
+
+```bash
+gh workflow run Release --ref main -f dry_run=true
+```
+
+dry run 会完整执行工具链安装、打包和自检，但不会改动标签和 Release。
+例如 `v1.99.1` 已手动发布时，dry run 不会产生版本冲突。
+产物在对应 run 的 Artifacts 中下载，保留 7 天。
 
 工作流执行：
 
-1. `resolve`：读取 `VERSION`，校验格式和标签，检查是否已有同版本 Release。
+1. `resolve`：读取 `VERSION`，校验格式和标签，检查是否已有同版本 Release；dry run 时跳过检查。
 2. `build-windows`：在 `windows-latest` 上运行 `prepare-windows.ps1 -RustVersion <VERSION>`，安装同一版本的 Rust。
 3. 运行 `build-windows.ps1 -Version <VERSION>`，其中会校验 `rustc --version` 等于发布版本，然后打包、自检、生成 SHA256。
-4. `publish`：创建或复用 Release，上传 ZIP 和 `SHA256SUMS`，最后发布。
+4. `publish`：创建或复用 Release，上传 ZIP 和 `SHA256SUMS`，最后发布；dry run 时跳过。
 
 工作流启用前，必须先确认：
 

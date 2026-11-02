@@ -548,8 +548,13 @@ git push origin v1.99.1
 - 版本从 `VERSION` 读取，不需要再输入版本号。
 - 工作流会在所选提交上创建 `v<VERSION>` 标签。
 - 可选 `draft` 输入：只生成草稿 Release，不直接公开。
+- 可选 `dry_run` 输入：只构建并上传 Actions artifact，不创建标签或 Release。
 - 如果该版本的 Release 已经发布，工作流会拒绝重复构建。
   发布新版本请先更新 `VERSION`。
+
+`dry_run` 用于在正式切换前验证工作流。
+例如 `v1.99.1` 已经手动发布，测试时勾选 `dry_run` 即可，不会产生版本冲突。
+测试产物在对应 workflow run 页面的 Artifacts 中，保留 7 天。
 
 ### 6.4 工作流执行内容
 
@@ -557,9 +562,9 @@ git push origin v1.99.1
 
 | 步骤 | 内容 |
 | --- | --- |
-| `resolve` | 读取 `VERSION`，校验标签格式和版本一致性，检查同版本 Release 是否已存在 |
+| `resolve` | 读取 `VERSION`，校验标签格式和版本一致性，检查同版本 Release 是否已存在；`dry_run` 时跳过检查 |
 | `build-windows` | 在 `windows-latest` 上安装同一版本的 Rust，构建 ZIP，运行自检，生成 `SHA256SUMS` |
-| `publish` | 创建或复用 Release，上传 ZIP 和 `SHA256SUMS`，然后发布 |
+| `publish` | 创建或复用 Release，上传 ZIP 和 `SHA256SUMS`，然后发布；`dry_run` 时跳过 |
 
 工作流需要仓库 Settings → Actions → General → Workflow permissions 允许读写。
 GitHub Release 单个资产不能超过 2 GiB。

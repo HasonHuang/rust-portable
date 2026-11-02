@@ -14,6 +14,10 @@ on:
         description: 'Create the release as a draft instead of publishing it'
         type: boolean
         default: false
+      dry_run:
+        description: 'Build and upload an Actions artifact only; do not create a tag or release'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -30,6 +34,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       draft: ${{ steps.version.outputs.draft }}
+      dry_run: ${{ steps.version.outputs.dry_run }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -41,6 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_DRAFT: ${{ inputs.draft }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
 
@@ -62,11 +68,19 @@ jobs:
             draft="false"
           fi
 
-          if gh release view "$tag" --json isDraft --jq .isDraft >/dev/null 2>&1; then
+          dry_run="${INPUT_DRY_RUN:-false}"
+          if [ "$dry_run" != "true" ]; then
+            dry_run="false"
+          fi
+
+          if [ "$dry_run" = "true" ]; then
+            echo "Dry run enabled: skipping tag and release checks."
+          elif gh release view "$tag" --json isDraft --jq .isDraft >/dev/null 2>&1; then
             existing_draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
             if [ "$existing_draft" != "true" ]; then
               echo "Release $tag already exists and is published." >&2
               echo "Bump VERSION to a new Rust version instead of rebuilding $version." >&2
+              echo "To test the workflow without releasing, run it with dry_run=true." >&2
               exit 1
             fi
             echo "A draft release for $tag already exists and will be reused."
@@ -80,7 +94,8 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "draft=$draft" >> "$GITHUB_OUTPUT"
-          echo "Release tag **$tag**, built from Rust $version." >> "$GITHUB_STEP_SUMMARY"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+          echo "Release tag **$tag**, built from Rust $version. Dry run: $dry_run." >> "$GITHUB_STEP_SUMMARY"
 
   build-windows:
     name: Build Windows x64 package
@@ -99,6 +114,25 @@ jobs:
         shell: pwsh
         run: ./scripts/build-windows.ps1 -Version "${{ needs.resolve.outputs.version }}"
 
+      - name: Write build summary
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          DRY_RUN: ${{ needs.resolve.outputs.dry_run }}
+        run: |
+          $sums = (Get-Content -LiteralPath 'dist/SHA256SUMS' -Raw).TrimEnd()
+          @(
+            "### rust-portable v$env:VERSION",
+            "",
+            "- Rust version: $env:VERSION",
+            "- Dry run: $env:DRY_RUN",
+            "- Artifact: rust-portable-v$env:VERSION-windows-x64.zip",
+            "",
+            '```',
+            $sums,
+            '```'
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -115,6 +149,7 @@ jobs:
     needs:
       - resolve
       - build-windows
+    if: needs.resolve.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
