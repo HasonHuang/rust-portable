@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = '',
+    [string]$Revision = '',
     [string]$OutputDir = '',
     [switch]$SkipDoctor,
     [switch]$KeepStaging
@@ -84,13 +85,26 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Invalid version '$Version'. Use MAJOR.MINOR.PATCH."
 }
 
+if ([string]::IsNullOrWhiteSpace($Revision)) {
+    $Revision = ''
+} elseif ($Revision -notmatch '^r[0-9]+$') {
+    throw "Invalid revision '$Revision'. Use r<N>, for example r2."
+}
+
+$assetVersion = $Version
+$bundleRevision = 'none'
+if ($Revision) {
+    $assetVersion = "$Version-$Revision"
+    $bundleRevision = $Revision
+}
+
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $repoRoot 'dist'
 }
 $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 
 $platform = 'windows-x64'
-$assetName = "rust-portable-v$Version-$platform.zip"
+$assetName = "rust-portable-v$assetVersion-$platform.zip"
 $zipPath = Join-Path $OutputDir $assetName
 $sumPath = Join-Path $OutputDir 'SHA256SUMS'
 $stageRoot = Join-Path $OutputDir '_stage'
@@ -209,9 +223,10 @@ catch {
 
 $builtAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $buildInfo = @"
-rust-portable $Version
+rust-portable $assetVersion
 Platform: $platform
 Rust version: $Version
+Bundle revision: $bundleRevision
 Built (UTC): $builtAt
 Git commit: $gitCommit
 Rust target: x86_64-pc-windows-gnu
@@ -294,6 +309,9 @@ if (-not $KeepStaging) {
 Write-Host ''
 Write-Host '[build] Windows package created.'
 Write-Host "  Version : $Version"
+if ($Revision) {
+    Write-Host "  Revision: $Revision"
+}
 Write-Host "  Asset   : $zipPath"
 Write-Host "  Size    : $sizeMiB MiB"
 Write-Host "  SHA256  : $hash"

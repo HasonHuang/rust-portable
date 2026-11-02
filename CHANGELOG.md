@@ -9,6 +9,15 @@
 - 打包优先使用 7-Zip 最高压缩级别 `-mx=9`，并支持从 PATH 查找 7-Zip。
 - 发布包移除未安装组件的 rustup 代理（rls、rust-gdbgui、rust-lldb、cargo-miri），压缩后约减少 20 MB。
 - 工具链目录改为动态查找，兼容 CI 的版本命名和本地的 `stable-*` 别名。
+- 新增 Linux x64 离线安装包 `rust-portable-v<version>-linux-x64.tar.gz`。
+- Linux 包使用 Rust 官方独立组件：rustc、cargo、rust-std、rustfmt、clippy、rust-analyzer、rust-src。
+- Linux 包不使用 rustup，不需要外网。
+- 新增 `linux/install.sh`、`env.sh`、`doctor.sh`、`uninstall.sh`、`add-component.sh`。
+- 新增 `scripts/prepare-linux.sh`、`scripts/build-linux.sh`、`scripts/test-linux-docker.sh`。
+- Release 工作流新增 `build-linux`，发布时合并 Windows 和 Linux 的 `SHA256SUMS`。
+- 支持同一 Rust 版本的修订标签 `v<version>-r<N>`，资产名包含修订号。
+- 构建脚本新增 Windows `-Revision` 和 Linux `--revision` 参数。
+- Linux 包在 Oracle Linux 8.10 容器中断网验证安装、组件运行、补装组件和卸载。
 
 ## 1.99.1 - 2026-11-02
 

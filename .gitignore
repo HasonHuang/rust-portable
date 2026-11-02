@@ -4,6 +4,9 @@
 /windows/toolchain/
 /windows/bootstrap/rustup-init.exe
 
+# Linux component payloads
+/linux/packages/
+
 # Build output
 /dist/
 /build/
