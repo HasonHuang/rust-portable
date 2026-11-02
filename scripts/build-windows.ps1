@@ -236,11 +236,19 @@ if (-not (Test-Path -LiteralPath $sevenZip)) {
         if (Test-Path -LiteralPath $candidate) { $sevenZip = $candidate }
     }
 }
+if (-not $sevenZip) {
+    $sevenZipCommand = Get-Command '7z.exe' -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($sevenZipCommand) {
+        $sevenZip = $sevenZipCommand.Source
+    }
+}
 
 if ($sevenZip) {
+    Write-Host "[build] Using 7-Zip with maximum compression: $sevenZip"
     Push-Location $stageRoot
     try {
-        & $sevenZip a -tzip -mx=7 -mmt=on -bso0 -bsp0 $zipPath 'rust-portable'
+        & $sevenZip a -tzip -mx=9 -mmt=on -bso0 -bsp0 $zipPath 'rust-portable'
         if ($LASTEXITCODE -ge 2) {
             throw "7-Zip failed with exit code $LASTEXITCODE"
         }
@@ -254,6 +262,7 @@ else {
     if (-not (Test-Path -LiteralPath $tar)) {
         throw 'No archive tool found. Install 7-Zip or use Windows 10/11 tar.exe.'
     }
+    Write-Host '[build] 7-Zip not found; falling back to tar.exe with default compression.'
     & $tar -a -c -f $zipPath -C $stageRoot 'rust-portable'
     if ($LASTEXITCODE -ne 0) {
         throw "tar.exe failed with exit code $LASTEXITCODE"

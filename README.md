@@ -599,7 +599,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 - 生成 `dist\rust-portable-v<version>-windows-x64.zip`。
 - 生成 `dist\SHA256SUMS`。
 
-需要 7-Zip。没有 7-Zip 时，脚本使用 Windows 10/11 自带的 `tar.exe`。
+需要 7-Zip。脚本优先使用 7-Zip 的最高压缩级别 `-mx=9`。
+找不到 7-Zip 时，回退到 Windows 10/11 自带的 `tar.exe`，压缩率会低一些。
 工具链目录不提交到 Git。
 
 ### 6.6 手动发布 GitHub Release（工作流不可用时）
