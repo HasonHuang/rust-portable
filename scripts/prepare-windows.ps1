@@ -1,11 +1,22 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$RustVersion = ''
+)
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+
+if ([string]::IsNullOrWhiteSpace($RustVersion)) {
+    $RustVersion = (Get-Content -LiteralPath (Join-Path $repoRoot 'VERSION') -Raw).Trim()
+}
+if ($RustVersion -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Invalid Rust version '$RustVersion'. Use MAJOR.MINOR.PATCH."
+}
+$toolchain = "$RustVersion-x86_64-pc-windows-gnu"
+
 $windowsPath = Join-Path $repoRoot 'windows'
 $cargoHome = Join-Path $windowsPath 'cargo'
 $rustupHome = Join-Path $windowsPath 'rustup'
@@ -46,15 +57,15 @@ Assert-Sha256 -Path $rustupInit -Expected $rustupInitSha256
 $env:CARGO_HOME = $cargoHome
 $env:RUSTUP_HOME = $rustupHome
 
-Write-Host '[prepare] Installing Rust 1.99.1 for x86_64-pc-windows-gnu'
-& $rustupInit -y --no-modify-path --profile minimal --default-host x86_64-pc-windows-gnu --default-toolchain 1.99.1-x86_64-pc-windows-gnu
+Write-Host "[prepare] Installing Rust $RustVersion for x86_64-pc-windows-gnu"
+& $rustupInit -y --no-modify-path --profile minimal --default-host x86_64-pc-windows-gnu --default-toolchain $toolchain
 if ($LASTEXITCODE -ne 0) {
     throw "rustup-init failed with exit code $LASTEXITCODE"
 }
 
 $rustup = Join-Path $cargoHome 'bin\rustup.exe'
 Write-Host '[prepare] Adding components'
-& $rustup component add rustfmt clippy rust-analyzer rust-src --toolchain 1.99.1-x86_64-pc-windows-gnu
+& $rustup component add rustfmt clippy rust-analyzer rust-src --toolchain $toolchain
 if ($LASTEXITCODE -ne 0) {
     throw "rustup component add failed with exit code $LASTEXITCODE"
 }

@@ -136,12 +136,17 @@ Copy-Tree -Source $windowsSrc -Destination (Join-Path $packageRoot 'windows') -E
 Write-Step 'Copying shared files'
 Copy-Tree -Source $sharedSrc -Destination (Join-Path $packageRoot 'shared')
 
-foreach ($name in @('README.md', 'LICENSE', 'CHANGELOG.md', 'VERSION')) {
+foreach ($name in @('README.md', 'LICENSE', 'CHANGELOG.md')) {
     $source = Join-Path $repoRoot $name
     if (Test-Path -LiteralPath $source -PathType Leaf) {
         Copy-Item -LiteralPath $source -Destination $packageRoot
     }
 }
+
+# The release version always equals the Rust version, so write VERSION from the
+# version being built instead of copying a possibly stale file from the repo.
+$stagedVersionPath = Join-Path $packageRoot 'VERSION'
+[System.IO.File]::WriteAllText($stagedVersionPath, "$Version`n", (New-Object System.Text.UTF8Encoding($false)))
 
 $cargoHome = Join-Path $packageRoot 'windows\cargo'
 $rustupHome = Join-Path $packageRoot 'windows\rustup'
@@ -162,6 +167,14 @@ $cargoVersion = Get-ToolVersion -Path (Join-Path $cargoBin 'cargo.exe') -ToolArg
 $rustupVersion = Get-ToolVersion -Path (Join-Path $cargoBin 'rustup.exe') -ToolArgs @('--version')
 $gccVersion = Get-ToolVersion -Path (Join-Path $mingwBin 'gcc.exe') -ToolArgs @('--version')
 
+if ($rustcVersion -notmatch '^rustc (\d+\.\d+\.\d+)') {
+    throw "Cannot determine the Rust version from '$rustcVersion'. Run scripts\prepare-windows.ps1 first."
+}
+$rustcSemver = $Matches[1]
+if ($rustcSemver -ne $Version) {
+    throw "The toolchain reports Rust $rustcSemver, but the release version is $Version. The release version must equal the Rust version."
+}
+
 $gitCommit = 'unknown'
 try {
     $gitCommit = (& git -C $repoRoot rev-parse --short HEAD 2>$null)
@@ -177,6 +190,7 @@ $builtAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 $buildInfo = @"
 rust-portable $Version
 Platform: $platform
+Rust version: $Version
 Built (UTC): $builtAt
 Git commit: $gitCommit
 Rust target: x86_64-pc-windows-gnu

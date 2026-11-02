@@ -1,5 +1,12 @@
 # Changelog
 
+## 未发布
+
+- GitHub Actions `Release` 工作流自动构建 Windows 便携包，发布版本号取自 `VERSION`（即 Rust 版本号）。
+- 工作流支持推送 `v<Rust版本>` 标签，也支持在 Actions 页面手动运行并自动创建标签。
+- 构建脚本新增校验：打包的 `rustc --version` 必须等于发布版本。
+- 打包时按构建版本写入 `VERSION`，避免仓库文件与工具链版本不一致。
+
 ## 1.99.1 - 2026-11-02
 
 - 首次发布。

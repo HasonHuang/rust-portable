@@ -1,78 +1,199 @@
 name: Release
 
+# The release version is always the Rust version in VERSION.
+# - Push a tag v<rust-version> to release that commit.
+# - Run the workflow manually to build VERSION and create the tag automatically.
+
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Create the release as a draft instead of publishing it'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  create-release:
+  resolve:
+    name: Resolve version
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      draft: ${{ steps.version.outputs.draft }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Validate version file
+      - name: Read the Rust version from VERSION
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_DRAFT: ${{ inputs.draft }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          file_version="$(tr -d '\r\n' < VERSION)"
-          if [ "$version" != "$file_version" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match VERSION ($file_version)." >&2
+          set -euo pipefail
+
+          version="$(tr -d '\r\n' < VERSION)"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must contain MAJOR.MINOR.PATCH, got '$version'." >&2
             exit 1
           fi
 
-      - name: Create draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          notes="docs/release-notes/${GITHUB_REF_NAME}.md"
-          if [ -f "$notes" ]; then
-            gh release create "$GITHUB_REF_NAME" \
-              --draft \
-              --title "rust-portable $GITHUB_REF_NAME" \
-              --notes-file "$notes"
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --draft \
-              --title "rust-portable $GITHUB_REF_NAME" \
-              --generate-notes
+          tag="v$version"
+          if [ "$EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION ($version)." >&2
+            echo "Update VERSION, or tag the commit as $tag." >&2
+            exit 1
           fi
 
+          draft="${INPUT_DRAFT:-false}"
+          if [ "$draft" != "true" ]; then
+            draft="false"
+          fi
+
+          if gh release view "$tag" --json isDraft --jq .isDraft >/dev/null 2>&1; then
+            existing_draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
+            if [ "$existing_draft" != "true" ]; then
+              echo "Release $tag already exists and is published." >&2
+              echo "Bump VERSION to a new Rust version instead of rebuilding $version." >&2
+              exit 1
+            fi
+            echo "A draft release for $tag already exists and will be reused."
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] \
+            && git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists but has no release." >&2
+            echo "Delete the tag or bump VERSION before rebuilding." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "draft=$draft" >> "$GITHUB_OUTPUT"
+          echo "Release tag **$tag**, built from Rust $version." >> "$GITHUB_STEP_SUMMARY"
+
   build-windows:
-    needs: create-release
+    name: Build Windows x64 package
+    needs: resolve
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Prepare Windows toolchain
+      - name: Prepare Windows toolchain (Rust ${{ needs.resolve.outputs.version }})
         shell: pwsh
-        run: ./scripts/prepare-windows.ps1
+        run: ./scripts/prepare-windows.ps1 -RustVersion "${{ needs.resolve.outputs.version }}"
 
-      - name: Build Windows package
+      - name: Build package
         shell: pwsh
-        run: ./scripts/build-windows.ps1
+        run: ./scripts/build-windows.ps1 -Version "${{ needs.resolve.outputs.version }}"
 
-      - name: Upload Windows assets
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
-          $asset = "dist/rust-portable-v$version-windows-x64.zip"
-          gh release upload "$env:GITHUB_REF_NAME" $asset "dist/SHA256SUMS" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "gh release upload failed with exit code $LASTEXITCODE" }
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-portable-windows-x64
+          path: |
+            dist/rust-portable-v${{ needs.resolve.outputs.version }}-windows-x64.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
 
   publish:
+    name: Publish GitHub Release
     needs:
+      - resolve
       - build-windows
     runs-on: ubuntu-latest
     steps:
-      - name: Publish release
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-portable-windows-x64
+          path: dist
+
+      - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false
+          TAG: ${{ needs.resolve.outputs.tag }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          DRAFT: ${{ needs.resolve.outputs.draft }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          notes="docs/release-notes/${TAG}.md"
+          draft_args=()
+          if [ "$DRAFT" = "true" ]; then
+            draft_args=(--draft)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Reusing the existing draft release $TAG."
+            if [ -f "$notes" ]; then
+              gh release edit "$TAG" --title "rust-portable $TAG" --notes-file "$notes"
+            fi
+          else
+            target_args=()
+            if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+              if git ls-remote --exit-code --tags origin "$TAG" >/dev/null 2>&1; then
+                echo "Tag $TAG already exists. Bump VERSION or delete the tag first." >&2
+                exit 1
+              fi
+              target_args=(--target "$GITHUB_SHA")
+            else
+              target_args=(--verify-tag)
+            fi
+
+            if [ -f "$notes" ]; then
+              gh release create "$TAG" \
+                --title "rust-portable $TAG" \
+                --notes-file "$notes" \
+                "${target_args[@]}" \
+                "${draft_args[@]}"
+            else
+              gh release create "$TAG" \
+                --title "rust-portable $TAG" \
+                --generate-notes \
+                "${target_args[@]}" \
+                "${draft_args[@]}"
+            fi
+          fi
+
+          gh release upload "$TAG" dist/*.zip dist/SHA256SUMS --clobber
+
+          if [ "$DRAFT" != "true" ]; then
+            gh release edit "$TAG" --draft=false
+          fi
+
+      - name: Write job summary
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo "### rust-portable $TAG"
+            echo ""
+            echo "- Rust version: \`$VERSION\`"
+            echo "- Package: \`rust-portable-v$VERSION-windows-x64.zip\`"
+            echo "- Release: $SERVER_URL/$REPOSITORY/releases/tag/$TAG"
+            echo ""
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

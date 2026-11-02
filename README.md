@@ -513,6 +513,21 @@ Linux 支持加入后，版本和许可信息也会记录在 `shared/VERSIONS.md
 
 ## 6. 构建发布包（维护者）
 
+发布版本号使用 Rust 版本号，保存在 `VERSION`。
+构建脚本会校验打包的 `rustc --version` 必须等于这个版本。
+
+### GitHub Actions 自动构建（推荐）
+
+仓库包含 `.github/workflows/release.yml`，在 GitHub 上完成构建和发布：
+
+- 推送标签 `v<Rust版本>`（例如 `v1.99.1`）；或
+- Actions → `Release` → `Run workflow`，版本从 `VERSION` 读取并自动创建标签。
+
+工作流会安装同一版本的 Rust，构建 Windows 压缩包，运行自检，上传 ZIP 和 `SHA256SUMS`，然后发布 Release。
+也可以勾选 `draft` 输入，先生成草稿 Release。
+
+### 本地构建
+
 首次构建时，先准备工具链：
 
 ```powershell
@@ -520,6 +535,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\prepare-windows.ps1
 ```
 
 该脚本下载固定版本的 rustup-init.exe 和 WinLibs MinGW-w64，并校验 SHA256。
+默认安装 `VERSION` 指定的 Rust 版本，也可以用 `-RustVersion 1.99.1` 指定。
 
 然后运行打包脚本：
 
@@ -531,7 +547,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 
 - 从 `VERSION` 读取版本号。
 - 把 `windows/` 和 `shared/` 复制到临时目录。
-- 写入 `BUILD-INFO.txt`。
+- 写入 `VERSION` 和 `BUILD-INFO.txt`。
+- 校验 `rustc --version` 等于发布版本。
 - 运行 `windows\doctor.bat --no-pause` 自检。
 - 生成 `dist\rust-portable-v<version>-windows-x64.zip`。
 - 生成 `dist\SHA256SUMS`。

@@ -9,6 +9,12 @@
 例如 Rust 1.99.1 对应项目版本 `1.99.1`。
 格式为 `MAJOR.MINOR.PATCH`。
 
+`VERSION` 是唯一版本来源：
+
+- `scripts/prepare-windows.ps1` 默认按它安装同一版本的 Rust。
+- `scripts/build-windows.ps1` 会检查 `rustc --version` 必须等于它，否则构建失败。
+- 工作流读取它，发布标签固定为 `v<VERSION>`。
+
 发布前同时更新：
 
 - `VERSION`
@@ -42,9 +48,16 @@ dist\SHA256SUMS
 
 1. 从 `VERSION` 读取版本。
 2. 把 `windows/`、`shared/`、README、LICENSE 复制到临时目录。
-3. 写入 `BUILD-INFO.txt`。
-4. 运行 `windows\doctor.bat --no-pause`。
-5. 生成 ZIP 和 SHA256。
+3. 写入 `VERSION` 和 `BUILD-INFO.txt`。
+4. 校验打包的 `rustc --version` 等于发布版本。
+5. 运行 `windows\doctor.bat --no-pause`。
+6. 生成 ZIP 和 SHA256。
+
+`-Version` 可以覆盖输出文件名中的版本，但工具链版本必须与之一致：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-windows.ps1 -Version 1.99.1
+```
 
 保留临时目录以便检查：
 
@@ -70,7 +83,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\prepare-windows.ps1
 
 脚本会下载固定版本的 `rustup-init.exe` 和 WinLibs MinGW-w64。
 两者都用 `shared/VERSIONS.md` 中的 SHA256 校验。
-然后安装 Rust 1.99.1 和常用组件。
+然后安装 `VERSION` 指定的 Rust 版本和常用组件。
+
+也可以显式指定 Rust 版本：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\prepare-windows.ps1 -RustVersion 1.99.1
+```
 
 GitHub Actions 使用同一个脚本准备工具链。
 
@@ -98,6 +117,10 @@ certutil -hashfile rust-portable-v1.99.1-windows-x64.zip SHA256
 
 ## 4. 提交并打标签
 
+推荐提交后直接在 Actions 中运行 `Release` 工作流（见第 7 节），由工作流创建标签和 Release。
+
+如果手动操作，标签必须与 `VERSION` 一致，否则工作流会拒绝构建：
+
 ```bash
 git status
 git add .
@@ -110,8 +133,9 @@ git push origin v1.99.1
 确认 `git status` 中没有工具链目录。
 `git count-objects -vH` 显示的仓库体积应只有几 MB。
 
-## 5. 创建 GitHub Release
+## 5. 手动创建 GitHub Release（备用）
 
+工作流不可用时，才需要本地构建并手动发布。
 需要 GitHub CLI：
 
 ```bash
@@ -174,13 +198,32 @@ gh release edit v1.99.1 --draft=false
 ## 7. 自动化发布
 
 仓库包含 `.github/workflows/release.yml`。
-推送 `v*` 标签时，工作流会：
+发布版本号直接取自 `VERSION`，也就是 Rust 版本号，标签固定为 `v<VERSION>`。
 
-1. 校验标签和 `VERSION`。
-2. 创建草稿 Release。
-3. 在 `windows-latest` 上准备工具链。
-4. 构建 Windows 压缩包并上传。
-5. 发布 Release。
+工作流支持两种触发方式：
+
+**推送标签**
+
+```bash
+git tag -a v1.99.1 -m "rust-portable v1.99.1"
+git push origin v1.99.1
+```
+
+标签必须等于 `v<VERSION>`，否则工作流在第一步失败。
+
+**手动运行**
+
+Actions → `Release` → `Run workflow`。
+版本仍然从 `VERSION` 读取，工作流会在所选提交上创建 `v<VERSION>` 标签。
+可选 `draft` 输入，先建草稿 Release 而不直接公开。
+如果该版本的 Release 已公开发布，工作流会拒绝重复构建；要发布新版本请先更新 `VERSION`。
+
+工作流执行：
+
+1. `resolve`：读取 `VERSION`，校验格式和标签，检查是否已有同版本 Release。
+2. `build-windows`：在 `windows-latest` 上运行 `prepare-windows.ps1 -RustVersion <VERSION>`，安装同一版本的 Rust。
+3. 运行 `build-windows.ps1 -Version <VERSION>`，其中会校验 `rustc --version` 等于发布版本，然后打包、自检、生成 SHA256。
+4. `publish`：创建或复用 Release，上传 ZIP 和 `SHA256SUMS`，最后发布。
 
 工作流启用前，必须先确认：
 
