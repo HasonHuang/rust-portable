@@ -1,4 +1,4 @@
-# 跨平台 Rust 开发环境
+# 便携式 Rust 开发环境
 
 Windows 使用便携包。
 Linux 使用离线安装包。
@@ -45,6 +45,44 @@ Linux 使用离线安装包。
 6. 运行 `/opt/rust-portable/share/rust-portable/doctor.sh`。
 
 用户级安装时，把第 5、6 步的 `/opt/rust-portable` 换成 `$HOME/.local/rust-portable`。
+
+### npm 安装（Windows x64）
+
+Windows 工具链支持 npm 安装：
+
+```powershell
+npm install @ihason/rust-portable
+```
+
+安装脚本把工具链解压到执行 `npm install` 的目录下的 `rust-portable`。
+然后运行：
+
+```powershell
+& ".\rust-portable\windows\configure-env.bat"
+```
+
+再打开新终端。
+不修改用户环境变量时，只在当前终端执行：
+
+```powershell
+. ".\rust-portable\windows\env.ps1"
+```
+
+项目路径不能含空格。
+需要时在安装前设置无空格的完整安装目录：
+
+```powershell
+$env:RUST_PORTABLE_INSTALL_DIR = 'C:\rust-portable'
+npm install @ihason/rust-portable
+```
+
+不要使用 `--omit=optional`、`--no-optional` 或 `--ignore-scripts`。
+平台包是 optional dependency。任何安装失败都可能被 npm 静默忽略。
+
+1.99.1 及更早版本安装到 `%LOCALAPPDATA%\rust-portable\<version>`。
+包含本修复的修订版开始使用上述当前目录布局。
+
+完整安装、升级、卸载和故障排查见 `docs/NPM.md`。
 
 ### 校验
 
@@ -456,6 +494,9 @@ Linux 包不包含 GCC。GCC 由目标系统的软件仓库提供。
 ## 6. 发布（维护者）
 
 发布流程见 `docs/RELEASING.md`。
+
+npm 发布是可选的人工操作，不属于 Release 流程。
+npm 包的构建和发布见 `docs/NPM.md`。
 
 规则：
 

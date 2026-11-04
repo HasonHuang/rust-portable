@@ -530,3 +530,19 @@ mv dist/SHA256SUMS.merged dist/SHA256SUMS
 ```
 
 GitHub Actions 的 `publish` 会自动完成合并。
+
+## 9. npm 发布（可选）
+
+npm 发布是可选的人工操作。
+npm 发布不属于 Release 流程。
+完整步骤见 `docs/NPM.md`。
+
+脚本位置：
+
+- `scripts/npm/build.mjs`：从 `dist` 中的 Windows ZIP 生成 8 个 npm 包。
+- `scripts/npm/publish.mjs`：按分片包、平台包、入口包的顺序发布。
+
+正常发布时，npm 包版本等于 `VERSION`。
+修订发布时，npm 包版本为 `<VERSION>-r<N>`，例如 `1.99.1-r2`。
+同一 Rust 版本重新发布时使用修订号。
+npm 版本不可覆盖。已发布版本有问题时，发布新的修订号。
