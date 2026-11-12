@@ -23,10 +23,11 @@ const { values, positionals } = parseArgs({
   options: {
     scope: { type: 'string' },
     name: { type: 'string' },
+    'package-name': { type: 'string' },
     version: { type: 'string', default: '1.0.0' },
     platform: { type: 'string', default: 'win32-x64' },
     'chunk-size': { type: 'string', default: '100' },
-    threshold: { type: 'string', default: '50' },
+    threshold: { type: 'string' },
     out: { type: 'string', default: 'build/npm-publish' },
     'strip-components': { type: 'string' },
     force: { type: 'boolean', default: false },
@@ -45,11 +46,12 @@ function help() {
 
 Options:
   --scope <scope>          npm scope, default NPM_SCOPE or your-scope
-  --name <name>            package base name, default input basename
+  --name <name>            package base name, default input name without extension
+  --package-name <name>    base name or @scope/name; overrides --name
   --version <version>      package version, default 1.0.0
   --platform <os-cpu>      default win32-x64; use any for no os/cpu
   --chunk-size <MiB>       chunk size, default 100
-  --threshold <MiB>        use chunks above this size, default 50
+  --threshold <MiB>        use chunks above this size, default chunk size
   --out <dir>              output directory, default build/npm-publish
   --strip-components <n>   default 1 for folders, 0 for files
   --force                  replace the output directory
@@ -76,7 +78,34 @@ const isDirectory = inputStat.isDirectory();
 const defaultName = isDirectory
   ? path.basename(input)
   : path.basename(input, path.extname(input));
-const rawName = values.name || defaultName;
+
+const requestedName = (values['package-name'] || values.name || '').trim();
+let rawScope = (values.scope || process.env.NPM_SCOPE || '').trim();
+let rawName = defaultName;
+
+if (requestedName.startsWith('@') && !requestedName.includes('/')) {
+  fail(`Invalid package name: ${requestedName}. Use @scope/name or a base name.`);
+}
+
+if (requestedName.includes('/')) {
+  const full = requestedName.replace(/^@/, '');
+  const parts = full.split('/');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    fail(`Invalid package name: ${requestedName}. Use @scope/name or a base name.`);
+  }
+  const fullScope = parts[0];
+  if (values.scope) {
+    const normalizedScope = values.scope.replace(/^@/, '').replace(/\/$/, '').toLowerCase();
+    if (normalizedScope !== fullScope.toLowerCase()) {
+      fail(`--scope ${values.scope} does not match package name scope ${fullScope}.`);
+    }
+  }
+  rawScope = fullScope;
+  rawName = parts[1];
+} else if (requestedName) {
+  rawName = requestedName;
+}
+
 const name = rawName
   .trim()
   .toLowerCase()
@@ -87,22 +116,24 @@ if (!name || !/^[a-z0-9][a-z0-9._~-]*$/.test(name)) {
   fail(`Invalid package name: ${rawName}`);
 }
 
-const scope = (values.scope || process.env.NPM_SCOPE || 'your-scope')
-  .trim()
+const scope = (rawScope || 'your-scope')
   .toLowerCase()
   .replace(/^@/, '')
   .replace(/\/$/, '');
 if (!/^[a-z0-9][a-z0-9._~-]*$/.test(scope)) {
-  fail(`Invalid scope: ${values.scope || process.env.NPM_SCOPE}`);
+  fail(`Invalid scope: ${rawScope}`);
 }
-if (!values.scope && !process.env.NPM_SCOPE) {
+if (!rawScope) {
   console.warn('[prepare-publish] Using placeholder scope: your-scope');
-  console.warn('[prepare-publish] Set --scope or NPM_SCOPE before publishing.');
+  console.warn('[prepare-publish] Set --scope, --package-name, or NPM_SCOPE before publishing.');
 }
 
 const version = (values.version || '').trim();
 if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
   fail(`Invalid version: ${version}`);
+}
+if (/^0\.0\.0-/.test(version)) {
+  fail(`Refusing placeholder version '${version}'. Use a real version such as 1.0.0.`);
 }
 
 const platform = (values.platform || 'any').trim();
@@ -122,7 +153,7 @@ if (!Number.isInteger(chunkMiB) || chunkMiB < 1 || chunkMiB > 200) {
 }
 const chunkBytes = chunkMiB * 1024 * 1024;
 
-const thresholdMiB = Number(values.threshold);
+const thresholdMiB = values.threshold === undefined ? chunkMiB : Number(values.threshold);
 if (!Number.isInteger(thresholdMiB) || thresholdMiB < 0) {
   fail('--threshold must be an integer of 0 or more.');
 }

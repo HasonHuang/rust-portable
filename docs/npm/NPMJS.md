@@ -54,8 +54,18 @@ docs/npm/prepare-publish.mjs
 
 ```bash
 node docs/npm/prepare-publish.mjs a.zip \
-  --scope @your-scope \
+  --scope '@your-scope' \
   --name a \
+  --version 1.0.0
+```
+
+不设置 `--name` 或 `--package-name` 时，包名使用输入文件名去掉扩展名。
+
+自定义完整包名：
+
+```bash
+node docs/npm/prepare-publish.mjs a.zip \
+  --package-name '@your-scope/custom' \
   --version 1.0.0
 ```
 
@@ -67,7 +77,7 @@ node docs/npm/prepare-publish.mjs a.zip \
 
 ```bash
 node docs/npm/prepare-publish.mjs ./a \
-  --scope @your-scope \
+  --scope '@your-scope' \
   --name a \
   --version 1.0.0
 ```
@@ -79,7 +89,7 @@ node docs/npm/prepare-publish.mjs ./a \
 1. 检查输入。
 2. 文件夹输入先压缩。
 3. 计算大小和 SHA256。
-4. 大于阈值时切分。
+4. 大于阈值时切分。阈值默认等于分片大小。
 5. 生成 `package`，或生成 `chunk-NN`、`loader`、`meta`。
 6. 分片模式生成 `install.js` 和 `archive.json`。
 7. 生成 `publish.sh`。
@@ -114,11 +124,12 @@ build/npm-publish/
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `--scope` | `NPM_SCOPE` 或 `your-scope` | npm scope |
-| `--name` | 输入文件名 | 包基础名 |
+| `--name` | 输入文件名（去掉扩展名） | 包基础名 |
+| `--package-name` | 无 | 包基础名或 `@scope/name`；覆盖 `--name` |
 | `--version` | `1.0.0` | 包版本 |
 | `--platform` | `win32-x64` | `os-cpu`；`any` 表示不写 |
 | `--chunk-size` | `100` | 分片大小，MiB |
-| `--threshold` | `50` | 超过此大小时分片，MiB |
+| `--threshold` | `--chunk-size`（100） | 超过此大小时分片，MiB |
 | `--out` | `build/npm-publish` | 输出目录 |
 | `--strip-components` | 文件夹 `1`，文件 `0` | 解压时去掉的顶层目录数 |
 | `--force` | 关闭 | 替换输出目录 |
@@ -149,6 +160,8 @@ build/npm-publish/publish.sh
 - 脚本不登录 npm。
 - 单包模式只发布文件，不解压。
 - 需要自动解压时，设置 `--threshold 0`。
+- 脚本拒绝 `0.0.0-*` 占位版本。
+- 默认版本是 `1.0.0`。
 - 默认安装目录是 `<执行 npm install 的目录>/<name>`。
 - 可用 `NPM_PAYLOAD_INSTALL_DIR` 指定完整安装目录。
 - Windows 安装使用 `tar.exe`。
@@ -163,7 +176,7 @@ build/npm-publish/publish.sh
 2. 登录 npm。
 3. 选择版本，确认 registry 中没有该版本。
 4. 检查输入文件，记录大小和 SHA256。
-5. 大于 50 MiB 时切分文件。
+5. 大于 100 MiB 时切分文件。
 6. 大文件创建分片包、加载器包和入口包。
 7. 检查包和 `archive.json`。
 8. 试运行发布。
@@ -178,7 +191,7 @@ npm 发布的是 npm 包，不是单独的文件。
 
 ### 4.1 小文件
 
-文件小于约 50 MiB 时，发布一个包。
+默认情况下，文件不大于 100 MiB 时，发布一个包。
 示例：
 
 ```text
